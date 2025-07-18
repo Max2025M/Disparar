@@ -8,7 +8,7 @@ const puppeteer = require("puppeteer");
     const browser = await puppeteer.launch({ headless: "new", args: ['--no-sandbox'] });
     const page = await browser.newPage();
 
-    page.setDefaultNavigationTimeout(30000); // 30s timeout
+    page.setDefaultNavigationTimeout(30000); // timeout de 30s
 
     const response = await page.goto(url, { waitUntil: 'networkidle2' });
 
@@ -19,7 +19,9 @@ const puppeteer = require("puppeteer");
       process.exit(1);
     }
 
-    await page.waitForTimeout(5000); // aguarda mais 5s para garantir carregamento JS
+    // Aguarda 5 segundos (substituindo page.waitForTimeout)
+    await new Promise(resolve => setTimeout(resolve, 5000));
+
     await browser.close();
   } catch (err) {
     console.error("❌ Erro ao acessar o site via Puppeteer:", err.message);
