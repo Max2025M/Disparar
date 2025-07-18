@@ -1,37 +1,40 @@
-const puppeteer = require("puppeteer");
+import asyncio
+import logging
+from pyppeteer import launch
+from pyppeteer.errors import TimeoutError
 
-(async () => {
-  const url = "https://texten-1kdb.onrender.com";
-  console.log("🌐 Acessando:", url);
+logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s - %(message)s')
 
-  try {
-    const browser = await puppeteer.launch({ headless: "new", args: ["--no-sandbox"] });
-    const page = await browser.newPage();
+URL_RENDER = "https://texten-1kdb.onrender.com"
 
-    // Aumenta o tempo de navegação para dar tempo ao Render
-    page.setDefaultNavigationTimeout(60000); // 1 minuto
+async def verificar_render():
+    try:
+        logging.info(f"🔵 Acessando Render: {URL_RENDER}")
+        browser = await launch(headless=True, args=['--no-sandbox', '--disable-setuid-sandbox'])
+        page = await browser.newPage()
 
-    const response = await page.goto(url, { waitUntil: "domcontentloaded" });
+        await page.goto(URL_RENDER, {
+            'timeout': 60000,
+            'waitUntil': 'networkidle2'
+        })
 
-    if (response && response.ok()) {
-      console.log("✅ Navegador acessou com sucesso:", response.status());
-    } else {
-      console.error("⚠️ Página acessada mas com status inválido:", response ? response.status() : "sem resposta");
-    }
+        # Espera 5 segundos para garantir que qualquer JS seja executado
+        await asyncio.sleep(5)
 
-    // Aguarda 15 segundos com o navegador aberto
-    console.log("⏳ Aguardando 15 segundos para Render acordar...");
-    await new Promise(resolve => setTimeout(resolve, 15000));
+        # Pega o texto puro do corpo da página
+        conteudo = await page.evaluate('() => document.body.textContent')
 
-    // Tenta acessar algum conteúdo da página (força renderização e JS)
-    const content = await page.evaluate(() => document.body.innerText || "Sem conteúdo no body");
+        logging.info(f"📋 Resposta do Render: {conteudo.strip()}")
 
-    console.log("📄 Conteúdo recebido (resumo):", content.slice(0, 100).replace(/\s+/g, " "), "...");
+        await browser.close()
+        return True
 
-    await browser.close();
-    console.log("✅ Finalizado com sucesso.");
-  } catch (err) {
-    console.error("❌ Erro durante acesso via Puppeteer:", err.message);
-    process.exit(1);
-  }
-})();
+    except TimeoutError:
+        logging.error("⏰ Tempo excedido ao tentar acessar o Render.")
+        return False
+    except Exception as e:
+        logging.error(f"❌ Erro ao acessar o Render: {e}")
+        return False
+
+if __name__ == "__main__":
+    asyncio.run(verificar_render())
