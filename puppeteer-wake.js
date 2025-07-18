@@ -1,40 +1,72 @@
-const puppeteer = require('puppeteer');
+const puppeteer = require("puppeteer");
+const https = require("https");
 
-const URL_RENDER = "https://texten-1kdb.onrender.com";
+const SITE_URL = "https://texten-1kdb.onrender.com";
+const UNLOCK_ENDPOINT = SITE_URL + "/desbloquear"; // endpoint que remove o 'limite'
 
-async function verificarRender() {
-  try {
-    console.log(`🔵 Acessando Render: ${URL_RENDER}`);
+// Envia POST para desbloquear o servidor Python
+function enviarPostDesbloqueio() {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify({ acao: "remover_limite" });
 
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    const req = https.request(UNLOCK_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Content-Length": data.length
+      }
+    }, (res) => {
+      let body = "";
+      res.on("data", chunk => body += chunk);
+      res.on("end", () => {
+        console.log("📬 Resposta completa do servidor Render:");
+        console.log(body); // exibe a resposta diretamente
+        if (body.toLowerCase().includes("sucesso") || res.statusCode === 200) {
+          resolve(true);
+        } else {
+          reject(new Error("❌ Servidor respondeu mas não confirmou desbloqueio."));
+        }
+      });
     });
 
-    const page = await browser.newPage();
-    await page.goto(URL_RENDER, {
-      waitUntil: 'networkidle2',
-      timeout: 60000
+    req.on("error", (err) => {
+      reject(err);
     });
 
-    // Esperar para garantir que scripts JS sejam executados
-    await new Promise(resolve => setTimeout(resolve, 5000));
-
-    // Extrair texto puro da página
-    const conteudo = await page.evaluate(() => document.body.textContent.trim());
-
-    console.log(`📋 Resposta do Render: ${conteudo}`);
-
-    await browser.close();
-    return true;
-  } catch (err) {
-    if (err.name === 'TimeoutError') {
-      console.error("⏰ Tempo excedido ao tentar acessar o Render.");
-    } else {
-      console.error(`❌ Erro ao acessar o Render: ${err}`);
-    }
-    return false;
-  }
+    req.write(data);
+    req.end();
+  });
 }
 
-verificarRender();
+(async () => {
+  console.log("🌐 Verificando se o Render está ativo:", SITE_URL);
+
+  try {
+    const browser = await puppeteer.launch({ headless: "new", args: ["--no-sandbox"] });
+    const page = await browser.newPage();
+    page.setDefaultNavigationTimeout(60000);
+
+    const response = await page.goto(SITE_URL, { waitUntil: "domcontentloaded" });
+
+    if (response && response.ok()) {
+      console.log(`✅ Render está online com status ${response.status()}. Nenhuma ação necessária.`);
+      await browser.close();
+      return;
+    } else {
+      console.log(`⚠️ Render respondeu com status ${response ? response.status() : "sem resposta"}.`);
+    }
+
+    console.log("📤 Enviando POST para desbloquear Render...");
+    await enviarPostDesbloqueio();
+    console.log("✅ Palavra 'limite' removida com sucesso.");
+
+    console.log("⏳ Aguardando 10 segundos antes de sair...");
+    await new Promise(resolve => setTimeout(resolve, 10000));
+
+    await browser.close();
+    console.log("✅ Finalizado.");
+  } catch (err) {
+    console.error("❌ Erro durante execução:", err.message);
+    process.exit(1);
+  }
+})();
