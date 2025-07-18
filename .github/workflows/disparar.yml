@@ -1,0 +1,23 @@
+name: Disparar Link às 8:00 (Moçambique)
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # 06:00 UTC = 08:00 em Moçambique (UTC+2)
+  workflow_dispatch:     # Permite executar manualmente
+
+jobs:
+  acessar_link:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Enviar solicitação HTTP para Render
+        run: |
+          echo "🌐 Enviando solicitação para https://texten-1kdb.onrender.com..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://texten-1kdb.onrender.com)
+
+          if [ "$STATUS" = "200" ]; then
+            echo "✅ Solicitação realizada com sucesso (HTTP $STATUS)"
+          else
+            echo "❌ Falha na solicitação. Código HTTP: $STATUS"
+            exit 1
+          fi
