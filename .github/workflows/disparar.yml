@@ -1,23 +1,25 @@
-name: Disparar Link às 8:00 (Moçambique)
+name: Acordar Render
 
 on:
+  workflow_dispatch: # Permite execução manual
   schedule:
-    - cron: '0 6 * * *'  # 06:00 UTC = 08:00 em Moçambique (UTC+2)
-  workflow_dispatch:     # Permite executar manualmente
+    - cron: '0 6 * * *'  # 08:00 em Moçambique (UTC+2 == 06:00 UTC)
 
 jobs:
-  acessar_link:
+  wake-render:
     runs-on: ubuntu-latest
-
+    name: Acordar app no Render via Puppeteer
     steps:
-      - name: Enviar solicitação HTTP para Render
-        run: |
-          echo "🌐 Enviando solicitação para https://texten-1kdb.onrender.com..."
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://texten-1kdb.onrender.com)
+      - name: 🧾 Clonar repositório
+        uses: actions/checkout@v3
 
-          if [ "$STATUS" = "200" ]; then
-            echo "✅ Solicitação realizada com sucesso (HTTP $STATUS)"
-          else
-            echo "❌ Falha na solicitação. Código HTTP: $STATUS"
-            exit 1
-          fi
+      - name: 📦 Instalar Node.js e dependências
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: 🧪 Instalar Puppeteer
+        run: npm install puppeteer
+
+      - name: 🚀 Executar script Puppeteer
+        run: node puppeteer-wake.js
