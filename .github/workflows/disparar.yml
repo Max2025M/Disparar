@@ -1,25 +1,48 @@
-name: Acordar Render
+name: Enviar WhatsApp (sem QR Code, usando sessão salva)
 
 on:
-  workflow_dispatch: # Permite execução manual
-  schedule:
-    - cron: '0 6 * * *'  # 08:00 em Moçambique (UTC+2 == 06:00 UTC)
+  workflow_dispatch:
+    inputs:
+      numero:
+        description: 'Número com DDI (ex: 258840000000)'
+        required: true
+      mensagem:
+        description: 'Mensagem que será enviada via WhatsApp'
+        required: true
 
 jobs:
-  wake-render:
+  whatsapp:
     runs-on: ubuntu-latest
-    name: Acordar app no Render via Puppeteer
+
     steps:
-      - name: 🧾 Clonar repositório
-        uses: actions/checkout@v3
+    - name: Checkout do código
+      uses: actions/checkout@v3
 
-      - name: 📦 Instalar Node.js e dependências
-        uses: actions/setup-node@v3
-        with:
-          node-version: '20'
+    - name: Instalar Node.js e WP Connect Server
+      run: |
+        git clone https://github.com/wppconnect-team/wppconnect-server.git
+        cd wppconnect-server
+        npm install
 
-      - name: 🧪 Instalar Puppeteer
-        run: npm install puppeteer
+    - name: Restaurar sessão a partir do segredo
+      run: |
+        mkdir -p wppconnect-server/tokens/default-session
+        echo '${{ secrets.SESSION_DATA }}' > wppconnect-server/tokens/default-session/Default.data.json
+      shell: bash
 
-      - name: 🚀 Executar script Puppeteer
-        run: node puppeteer-wake.js
+    - name: Iniciar WP Connect Server
+      run: |
+        cd wppconnect-server
+        echo "🟢 Iniciando WP Connect Server com sessão salva..."
+        npm start &
+        sleep 30
+
+    - name: Instalar dependências do projeto
+      run: |
+        npm install axios
+
+    - name: Enviar e escutar resposta
+      env:
+        NUMERO: ${{ github.event.inputs.numero }}
+        MENSAGEM: ${{ github.event.inputs.mensagem }}
+      run: node scripts/send_and_listen.js
